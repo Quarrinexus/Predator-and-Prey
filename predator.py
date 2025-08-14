@@ -16,6 +16,9 @@ class Predator:
         self.image = pygame.Surface((50, 50))  # Placeholder for predator image
         self.image.fill((255, 0, 0))  # Fill with red color for visibility
 
+    def __repr__(self):
+        return f"Predator(x={self.x}, y={self.y}, direction={self.direction}, speed={self.speed})"
+    
     def draw(self, screen):
         screen.blit(self.image, (self.x, self.y))
 
