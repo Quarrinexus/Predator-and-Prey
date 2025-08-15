@@ -15,7 +15,7 @@ class Prey(pygame.sprite.Sprite):
         self.turning_rate = turning_rate
         self.food_detection_radius = food_detection_radius
         self.predator_detection_radius = predator_detection_radius
-        self.hunger = 20
+        self.hunger = 10
         self.closest_food = None
 
         #attributes for appearance

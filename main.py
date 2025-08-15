@@ -6,41 +6,62 @@ import numpy as np
 import prey
 import predator
 
+# Function to draw food on the screen
 def draw_food(screen, food):
     for f in food:
         pygame.draw.circle(screen, (255, 255, 0), (int(f[0]), int(f[1])), 5)  # Draw food as yellow circles
 
+# Function to generate food
 def generate_food(food):
-    for i in range(0 if random.randint(0, 100) > 4 else 1):
+    # Randomly generate new food items
+    for i in range(0 if random.randint(0, 100) > 4 else 1): # 4% chance to generate new food
         new_food = np.array((random.randint(0, 2200), random.randint(0, 1200)))
         food = np.vstack([food, new_food])
     return food
 
 def eat_food(food, preys):
     remove_indices = []
+    new_preys = []
     for p in preys:
         if p.closest_food is not None:
             dist = np.linalg.norm(np.array([p.x, p.y]) - p.closest_food)
-            if dist < 25:  # 25 pixels is a reasonable "eating" radius
-                # Find index of closest_food in food array
+            if dist < 25:
                 matches = np.where((food == p.closest_food).all(axis=1))[0]
                 if matches.size > 0:
                     idx = matches[0]
                     remove_indices.append(idx)
-                    p.hunger += 10
-                    p.closest_food = None  # Reset closest food after eating
+                    p.hunger += 5
+                    p.closest_food = None
+                    # Reproduce immediately for this prey
+                    new_preys.append(prey.Prey(
+                        p.x,
+                        p.y,
+                        (p.direction + math.pi) % (2 * math.pi),
+                        p.speed * random.uniform(0.8, 1.2),
+                        p.turning_rate * random.uniform(0.8, 1.2),
+                        p.food_detection_radius * random.uniform(0.8, 1.2),
+                        p.predator_detection_radius * random.uniform(0.8, 1.2),
+                        (max(0, min(p.colour[0] + random.randint(-50, 50), 255)),
+                         max(0, min(p.colour[1] + random.randint(-50, 50), 255)),
+                         max(0, min(p.colour[2] + random.randint(-50, 50), 255))    
+                    )))
+
     if remove_indices:
         food = np.delete(food, remove_indices, axis=0)
+    if new_preys:
+        preys.add(*new_preys)
     return food
 
+# Function to remove starved preys
 def remove_starved_preys(preys):
     for p in preys:
-        p.hunger -= 1
-        if p.hunger <= 0:
+        p.hunger -= 1 # Decrease hunger every second
+        if p.hunger <= 0: # If hunger reaches zero, remove the prey
             preys.remove(p)
             print(f"Removed starved prey at ({p.x}, {p.y})")
     return preys
 
+# Main function to run the simulation
 def main():
     pygame.init()
     
