@@ -31,6 +31,10 @@ class Prey(pygame.sprite.Sprite):
     def __repr__(self):
         return f"Prey(id = {self.id}, x={self.x}, y={self.y}, direction={self.direction}, speed={self.speed}, colour={self.colour}), closest_food={self.closest_food})"
 
+    def draw(self, screen):
+        pygame.draw.circle(screen, (255, 255, 0), (int(self.x), int(self.y)), 3)
+
+
     def find_closest_food(self, food):
         # NumPy optimization: food is expected to be a 2D np.array of shape (n, 2)
         if len(food) == 0:

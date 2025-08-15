@@ -3,6 +3,8 @@ from sys import exit
 import random
 import math
 import numpy as np
+import logging
+import matplotlib.pyplot as plt
 import prey
 import predator
 
@@ -17,7 +19,7 @@ def draw_food(screen, food):
 # Function to generate food
 def generate_food(food):
     # Randomly generate new food items
-    for i in range(0 if random.randint(0, 100) > 4 else 1): # 4% chance to generate new food
+    for i in range(0 if random.randint(0, 100) > 20 else 1): # 10% chance to generate new food
         new_food = np.array((random.randint(0, width), random.randint(0, height)))
         food = np.vstack([food, new_food])
     return food
@@ -69,7 +71,6 @@ def eat_prey(predators, preys):
                     preys.remove(prey_to_eat)
                     pred.hunger += 5
                     pred.closest_prey = None
-                    print(f"Predator at ({pred.x}, {pred.y}) ate prey at ({prey_to_eat.x}, {prey_to_eat.y})")
                     new_predators.append(predator.Predator(
                         pred.x,
                         pred.y,
@@ -92,7 +93,6 @@ def remove_starved_preys(preys):
         p.hunger -= 1 # Decrease hunger every second
         if p.hunger <= 0: # If hunger reaches zero, remove the prey
             preys.remove(p)
-            #print(f"Removed starved prey at ({p.x}, {p.y})")
     return preys
 
 def removed_starved_predators(predators):
@@ -100,8 +100,10 @@ def removed_starved_predators(predators):
         p.hunger -= 1 # Decrease hunger every second
         if p.hunger <= 0: # If hunger reaches zero, remove the predator
             predators.remove(p)
-
     return predators
+
+def plot_data(prey_population, predator_population):
+    pass
 
 # Main function to run the simulation
 def main():
@@ -116,6 +118,14 @@ def main():
     clock = pygame.time.Clock()
     fps = 30
     counter = 0
+    time = 0
+
+    # Set up population history arrays
+    prey_population = np.array([[0, 10]])
+    predator_population = np.array([0, 5])
+
+    # Set up logger
+    #logger = logging.Logger()
 
     #Initialize start position and attributes for the simulation
     food = np.array([(random.randint(0, width), random.randint(0, height)) for i in range(75)])
@@ -129,9 +139,7 @@ def main():
         random.randint(100, 200), #food_detection_radius
         random.randint(50, 100), #predator_detection_radius
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), #colour
-        ) for i in range(10))
-    for p in preys:
-        print(p)  # Debugging output to check prey initialization
+        ) for i in range(15))
     predators = pygame.sprite.Group(
         predator.Predator(
         random.randint(0, width), #x
@@ -141,7 +149,7 @@ def main():
         random.uniform(0.1, 0.15), #turning_rate
         random.randint(300, 500), #prey_detection_radius
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) #colour
-        ) for i in range(10))
+        ) for i in range(5))
 
     # Main loop
     running = True
@@ -176,6 +184,7 @@ def main():
         # Handles hunger decrease and starvation every 30 frames
         if counter == 30:
             counter = 0
+            time += 1
             remove_starved_preys(preys)
         elif counter == 15:
             removed_starved_predators(predators)
@@ -191,3 +200,11 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+"""
+To do list:
+-Create Logger
+-Create ID system and use it to make predators eat prey more cleanly
+-Create prey running AI
+-Record and plot population and trait data
+"""

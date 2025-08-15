@@ -17,19 +17,23 @@ class Predator(pygame.sprite.Sprite):
         self.speed = speed
         self.turning_rate = turning_rate
         self.prey_detection_radius = prey_detection_radius
-        self.hunger = 10
+        self.hunger = 5
         self.closest_prey = None
 
         #attributes for appearance (predator is a triangle)
         self.colour = colour
-        self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
-        pygame.draw.polygon(self.image, colour, [(20, 0), (0, 40), (40, 40)])
+        self.base_image = pygame.Surface((40, 60), pygame.SRCALPHA)
+        pygame.draw.polygon(self.base_image, self.colour, [(20, 30), (0, 60), (40, 60)])
+        self.image = pygame.transform.rotate(self.base_image, math.degrees(self.direction))
         self.rect = self.image.get_rect(center=(self.x, self.y))
-        #self.image = pygame.transform.rotate(self.image, -math.degrees(self.direction))
 
     def __repr__(self):
         return f"Predator(x={self.x}, y={self.y}, direction={self.direction}, speed={self.speed}, closest_prey={self.closest_prey})"
     
+    def draw(self, screen):
+        pygame.draw.circle(screen, (255, 255, 0), (int(self.x), int(self.y)), 3)
+        pygame.draw.rect(self.base_image, (255, 255, 0), self.base_image.get_rect(), 1)
+
     def find_closest_prey(self, prey):
         # NumPy optimization: prey is expected to be a 2D np.array of shape (n, 2)
         if len(prey) == 0:
@@ -55,7 +59,8 @@ class Predator(pygame.sprite.Sprite):
                 self.direction = direction_to_prey
 
         # Rotate the image to face the direction
-        #self.image = pygame.transform.rotate(self.image, -math.degrees(self.direction))
+        pygame.draw.polygon(self.base_image, self.colour, [(20, 20), (0, 60), (40, 60)])
+        self.image = pygame.transform.rotate(self.base_image, -math.degrees(self.direction + math.pi/2))
 
         # Move the prey in the current direction
         self.x += self.speed * math.cos(self.direction)
