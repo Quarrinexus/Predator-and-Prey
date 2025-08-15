@@ -1,6 +1,6 @@
 import pygame
 import math
-from functools import reduce
+import numpy as np
 
 class Prey(pygame.sprite.Sprite):
     def __init__(self, x, y, direction, speed, turning_rate, food_detection_radius, predator_detection_radius, colour):
@@ -30,15 +30,25 @@ class Prey(pygame.sprite.Sprite):
     def draw(self, screen):
         screen.blit(self.image, (self.x-20, self.y-20))
 
-    def update(self, food, predators):
-        # Check for food within detection radius
-        foods_in_radius = list(filter(lambda f: math.hypot(f[0] - self.x, f[1] - self.y) < self.food_detection_radius, food))
-        self.closest_food = min(foods_in_radius, key=lambda f: math.hypot(f[0] - self.x, f[1] - self.y), default=None)
-        
-        # Direct towards closest food if available
+    def find_closest_food(self, food):
+        # NumPy optimization: food is expected to be a 2D np.array of shape (n, 2)
+        if len(food) == 0:
+            self.closest_food = None
+            return
+        pos = np.array([self.x, self.y])
+        dists = np.linalg.norm(food - pos, axis=1)
+        within_radius = np.where(dists < self.food_detection_radius)[0]
+        if within_radius.size > 0:
+            idx = within_radius[np.argmin(dists[within_radius])]
+            self.closest_food = food[idx]
+        else:
+            self.closest_food = None
+
+    def update(self):
+        # angle to closest food
         if self.closest_food is not None:
             direction_to_food = math.atan2(self.closest_food[1] - self.y, self.closest_food[0] - self.x)
-            angle_diff = (direction_to_food - self.direction + math.pi) % (2 * math.pi) - math.pi  # shortest signed angle
+            angle_diff = (direction_to_food - self.direction + math.pi) % (2 * math.pi) - math.pi
             if abs(angle_diff) > self.turning_rate:
                 self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
             else:
