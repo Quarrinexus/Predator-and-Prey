@@ -2,6 +2,9 @@ import pygame
 import math
 import numpy as np
 
+global width, height
+width, height = 2200, 1200  # Set the dimensions of the simulation
+
 class Prey(pygame.sprite.Sprite):
     def __init__(self, x, y, direction, speed, turning_rate, food_detection_radius, predator_detection_radius, colour):
         super().__init__()
@@ -9,6 +12,7 @@ class Prey(pygame.sprite.Sprite):
         self.x = x
         self.y = y
         self.direction = direction
+        self.id = id
 
         #attributes for movement and behaviour
         self.speed = speed
@@ -25,10 +29,7 @@ class Prey(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(self.x, self.y))
 
     def __repr__(self):
-        return f"Prey(x={self.x}, y={self.y}, direction={self.direction}, speed={self.speed}, colour={self.colour}), closest_food={self.closest_food})"
-
-    def draw(self, screen):
-        screen.blit(self.image, (self.x-20, self.y-20))
+        return f"Prey(id = {self.id}, x={self.x}, y={self.y}, direction={self.direction}, speed={self.speed}, colour={self.colour}), closest_food={self.closest_food})"
 
     def find_closest_food(self, food):
         # NumPy optimization: food is expected to be a 2D np.array of shape (n, 2)
@@ -57,6 +58,6 @@ class Prey(pygame.sprite.Sprite):
         # Move the prey in the current direction
         self.x += self.speed * math.cos(self.direction)
         self.y += self.speed * math.sin(self.direction)
-        self.x = max(0, min(self.x, 2200))  # Keep within bounds
-        self.y = max(0, min(self.y, 1200))
+        self.x = max(0, min(self.x, width))  # Keep within bounds
+        self.y = max(0, min(self.y, height))
         self.rect.center = (self.x, self.y)
