@@ -4,9 +4,9 @@ import random
 import math
 import numpy as np
 import logging
-import matplotlib.pyplot as plt
 import prey
 import predator
+import plotting
 
 global width, height
 width, height = 2200, 1200  # Set the dimensions of the simulation window
@@ -19,7 +19,7 @@ def draw_food(screen, food):
 # Function to generate food
 def generate_food(food):
     # Randomly generate new food items
-    for i in range(0 if random.randint(0, 100) > 20 else 1): # 10% chance to generate new food
+    for i in range(0 if random.randint(0, 100) > 10 else 1): # 10% chance to generate new food
         new_food = np.array((random.randint(0, width), random.randint(0, height)))
         food = np.vstack([food, new_food])
     return food
@@ -102,9 +102,6 @@ def removed_starved_predators(predators):
             predators.remove(p)
     return predators
 
-def plot_data(prey_population, predator_population):
-    pass
-
 # Main function to run the simulation
 def main():
     pygame.init()
@@ -121,8 +118,9 @@ def main():
     time = 0
 
     # Set up population history arrays
-    prey_population = np.array([[0, 10]])
-    predator_population = np.array([0, 5])
+    prey_population_data = [10]
+    predator_population_data = [5]
+    times = [0]
 
     # Set up logger
     #logger = logging.Logger()
@@ -186,6 +184,9 @@ def main():
             counter = 0
             time += 1
             remove_starved_preys(preys)
+            prey_population_data.append(len(preys))
+            predator_population_data.append(len(predators))
+            times.append(time)
         elif counter == 15:
             removed_starved_predators(predators)
 
@@ -196,6 +197,7 @@ def main():
         pygame.display.flip()
 
     pygame.quit()
+    plotting.plot_population_data(prey_population_data, predator_population_data, times)
     exit()
 
 if __name__ == "__main__":
