@@ -9,7 +9,7 @@ import predator
 import plotting
 
 global width, height
-width, height = 2200, 1200  # Set the dimensions of the simulation window
+width, height = 1800, 800  # Set the dimensions of the simulation window
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ def draw_food(screen, food):
 # Function to generate food
 def generate_food(food):
     # Randomly generate new food items
-    for i in range(0 if random.randint(0, 100) > 80 else 1): # 20% chance to generate new food
+    for i in range(0 if random.randint(0, 100) > 20 else 1): # 20% chance to generate new food
         new_food = np.array([(random.randint(0, width), random.randint(0, height))])
         food = np.vstack([food, new_food])
     return food
@@ -42,17 +42,17 @@ def eat_food(food, preys, total_prey_created):
                     logger.debug(f"Prey at ({p.x}, {p.y}) has eaten food at {tuple(p.closest_food)} and reproduced!")
                     idx = matches[0]
                     remove_indices.append(idx)
-                    p.hunger += 1
+                    p.hunger += 3
                     p.closest_food = None
                     # Reproduce immediately for this prey
                     new_preys.append(prey.Prey(
                         p.x,
                         p.y,
                         random.uniform(0, math.pi),
-                        p.speed * random.uniform(0.8, 1.2),
-                        p.turning_rate * random.uniform(0.8, 1.2),
-                        p.food_detection_radius * random.uniform(0.8, 1.2),
-                        p.predator_detection_radius * random.uniform(0.8, 1.2),
+                        p.speed + random.uniform(-0.1, 0.1),
+                        p.turning_rate + random.uniform(-0.01, 0.01),
+                        p.food_detection_radius + random.uniform(-20, 20),
+                        p.predator_detection_radius + random.uniform(-20, 20),
                         (max(0, min(p.colour[0] + random.randint(-50, 50), 255)),
                          max(0, min(p.colour[1] + random.randint(-50, 50), 255)),
                          max(0, min(p.colour[2] + random.randint(-50, 50), 255))),
@@ -84,9 +84,9 @@ def eat_prey(predators, preys):
                         pred.x,
                         pred.y,
                         random.uniform(0, math.pi),
-                        pred.speed * random.uniform(0.8, 1.2),
-                        pred.turning_rate * random.uniform(0.8, 1.2),
-                        pred.prey_detection_radius * random.uniform(0.8, 1.2),
+                        pred.speed + random.uniform(-0.1, 0.1),
+                        pred.turning_rate + random.uniform(-0.01, 0.01),
+                        pred.prey_detection_radius + random.uniform(-20, 20),
                         (max(0, min(pred.colour[0] + random.randint(-50, 50), 255)),
                         max(0, min(pred.colour[1] + random.randint(-50, 50), 255)),
                         max(0, min(pred.colour[2] + random.randint(-50, 50), 255)))
@@ -145,13 +145,15 @@ def main():
         random.randint(0, width), #x
         random.randint(0, height), #y
         random.uniform(0, math.pi), #direction 
-        random.uniform(3.0, 5.0), #speed
+        random.uniform(2.0, 4.0), #speed
         random.uniform(0.1, 0.15), #turning_rate
         random.randint(100, 200), #food_detection_radius
-        random.randint(50, 100), #predator_detection_radius
+        random.randint(30, 80), #predator_detection_radius
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), #colour
         i+1  # Unique ID for each prey
-        ) for i in range(total_prey_created))
+        ) 
+        for i in range(total_prey_created)
+        )
     
     # Initialize predators
     predators = pygame.sprite.Group(
@@ -159,11 +161,11 @@ def main():
         random.randint(0, width), #x
         random.randint(0, height), #y
         random.uniform(0, math.pi), #direction
-        random.uniform(3.0, 5.0), #speed
+        random.uniform(2.0, 4.0), #speed
         random.uniform(0.1, 0.15), #turning_rate
         random.randint(300, 500), #prey_detection_radius
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) #colour
-        ) for i in range(5))
+        ) for i in range(10))
 
     # Main loop
     running = True
@@ -182,6 +184,7 @@ def main():
         if counter % 10 == 0:
             for p in preys:
                 p.find_closest_food(food)
+                p.find_closest_predator(np.array([[pred.x, pred.y] for pred in predators]))
         # stagger predator prey detection
         elif counter % 10 == 5:
             for pred in predators:
