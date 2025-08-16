@@ -1,12 +1,13 @@
 import pygame
 import math
 import numpy as np
+import random
 
 global width, height
 width, height = 2200, 1200  # Set the dimensions of the simulation
 
 class Prey(pygame.sprite.Sprite):
-    def __init__(self, x, y, direction, speed, turning_rate, food_detection_radius, predator_detection_radius, colour):
+    def __init__(self, x, y, direction, speed, turning_rate, food_detection_radius, predator_detection_radius, colour, id):
         super().__init__()
         #initial position variables
         self.x = x
@@ -34,7 +35,6 @@ class Prey(pygame.sprite.Sprite):
     def draw(self, screen):
         pygame.draw.circle(screen, (255, 255, 0), (int(self.x), int(self.y)), 3)
 
-
     def find_closest_food(self, food):
         # NumPy optimization: food is expected to be a 2D np.array of shape (n, 2)
         if len(food) == 0:
@@ -58,6 +58,15 @@ class Prey(pygame.sprite.Sprite):
                 self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
             else:
                 self.direction = direction_to_food
+        else:
+            # If no food is detected, turn randomly
+            target_point = np.array([random.randint(width/8, 7*width/4), random.randint(height/8, 7*height/4)])
+            direction_to_target = math.atan2(target_point[1] - self.y, target_point[0] - self.x)
+            angle_diff = (direction_to_target - self.direction + math.pi) % (2 * math.pi) - math.pi
+            if abs(angle_diff) > self.turning_rate:
+                self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
+            else:
+                self.direction = direction_to_target
 
         # Move the prey in the current direction
         self.x += self.speed * math.cos(self.direction)

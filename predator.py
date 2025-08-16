@@ -17,8 +17,9 @@ class Predator(pygame.sprite.Sprite):
         self.speed = speed
         self.turning_rate = turning_rate
         self.prey_detection_radius = prey_detection_radius
-        self.hunger = 5
+        self.hunger = 3
         self.closest_prey = None
+        self.closest_prey_id = None
 
         #attributes for appearance (predator is a triangle)
         self.colour = colour
@@ -40,13 +41,16 @@ class Predator(pygame.sprite.Sprite):
             self.closest_prey = None
             return
         pos = np.array([self.x, self.y])
-        dists = np.linalg.norm(prey - pos, axis=1)
+        prey_positions = prey[:, :2]  # Extract only the x, y coordinates
+        dists = np.linalg.norm(prey_positions - pos, axis=1)
         within_radius = np.where(dists < self.prey_detection_radius)[0]
         if within_radius.size > 0:
             idx = within_radius[np.argmin(dists[within_radius])]
-            self.closest_prey = prey[idx]
+            self.closest_prey = prey_positions[idx]
+            self.closest_prey_id = prey[idx, 2]  # Assuming prey has an id in the third column
         else:
             self.closest_prey = None
+            self.closest_prey_id = None
 
     def update(self):
         # angle to closest food
