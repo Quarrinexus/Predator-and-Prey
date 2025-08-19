@@ -25,7 +25,7 @@ def draw_food(screen, food):
 # Function to generate food
 def generate_food(food):
     # Randomly generate new food items
-    for i in range(0 if random.randint(0, 100) > 20 else 1): # 20% chance to generate new food
+    for i in range(0 if random.randint(0, 100) > 30 else 1): # 30% chance to generate new food
         new_food = np.array([(random.randint(0, width), random.randint(0, height))])
         food = np.vstack([food, new_food])
     return food
@@ -43,12 +43,12 @@ def eat_food(food, preys, total_prey_created):
                     idx = matches[0]
                     remove_indices.append(idx)
                     p.hunger += 3
-                    p.closest_food = None
+                    p.find_closest_food(food)  # Recalculate closest food after eating
                     # Reproduce immediately for this prey
                     new_preys.append(prey.Prey(
                         p.x,
                         p.y,
-                        random.uniform(0, math.pi),
+                        (p.direction + random.uniform(math.pi/2, 3*math.pi/2)) % (2 * math.pi),  # Reverse direction
                         p.speed + random.uniform(-0.1, 0.1),
                         p.turning_rate + random.uniform(-0.01, 0.01),
                         p.food_detection_radius + random.uniform(-20, 20),
@@ -70,8 +70,7 @@ def eat_prey(predators, preys):
     new_predators = []
     for pred in predators:
         if pred.closest_prey is not None:
-            dist = np.linalg.norm(np.array([pred.x, pred.y]) -
-                                  np.array([pred.closest_prey[0], pred.closest_prey[1]]))
+            dist = np.linalg.norm(np.array([pred.x, pred.y]) - np.array([pred.closest_prey[0], pred.closest_prey[1]]))
             if dist < 15:
                 matches = [p for p in preys if p.id == pred.closest_prey_id]
                 if len(matches) > 0:
@@ -83,7 +82,7 @@ def eat_prey(predators, preys):
                     new_predators.append(predator.Predator(
                         pred.x,
                         pred.y,
-                        random.uniform(0, math.pi),
+                        (pred.direction + math.pi) % (2 * math.pi),  # Reverse direction
                         pred.speed + random.uniform(-0.1, 0.1),
                         pred.turning_rate + random.uniform(-0.01, 0.01),
                         pred.prey_detection_radius + random.uniform(-20, 20),
@@ -128,7 +127,7 @@ def main():
     counter = 0
     time = 0
 
-    total_prey_created = 15
+    total_prey_created = 20
 
     # Set up population history arrays
     prey_population_data = [10]
@@ -137,7 +136,7 @@ def main():
 
     #Initialize start position and attributes for the simulation
     # Generate initial food
-    food = np.array([(random.randint(0, width), random.randint(0, height)) for i in range(50)])
+    food = np.array([(random.randint(0, width), random.randint(0, height)) for i in range(40)])
 
     # Initialize prey
     preys = pygame.sprite.Group(
@@ -145,7 +144,7 @@ def main():
         random.randint(0, width), #x
         random.randint(0, height), #y
         random.uniform(0, math.pi), #direction 
-        random.uniform(2.0, 4.0), #speed
+        random.uniform(3.0, 5.0), #speed
         random.uniform(0.1, 0.15), #turning_rate
         random.randint(100, 200), #food_detection_radius
         random.randint(30, 80), #predator_detection_radius
@@ -161,7 +160,7 @@ def main():
         random.randint(0, width), #x
         random.randint(0, height), #y
         random.uniform(0, math.pi), #direction
-        random.uniform(2.0, 4.0), #speed
+        random.uniform(3.0, 5.0), #speed
         random.uniform(0.1, 0.15), #turning_rate
         random.randint(300, 500), #prey_detection_radius
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) #colour
@@ -206,8 +205,8 @@ def main():
             counter = 0
             time += 1
             remove_starved_preys(preys)
-            prey_population_data.append(len(preys))
-            predator_population_data.append(len(predators))
+            plotting.gather_population_data(len(preys), len(predators), time)
+            plotting.gather_speed_data(preys, predators)
             times.append(time)
         elif counter == 15:
             removed_starved_predators(predators)
@@ -219,7 +218,9 @@ def main():
         pygame.display.flip()
 
     pygame.quit()
-    plotting.plot_population_data(prey_population_data, predator_population_data, times)
+    plotting.plot_population_data()
+    plotting.plot_speed_data()
+    logger.info("Simulation ended.")
     exit()
 
 if __name__ == "__main__":
@@ -227,6 +228,7 @@ if __name__ == "__main__":
 
 """
 To do list:
--Create prey running AI
 -Record and plot population and trait data
+-Multiprocessing for performance?
+-Use variables for prey and predator attributes for easier tuning
 """

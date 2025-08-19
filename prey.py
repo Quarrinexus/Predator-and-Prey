@@ -65,14 +65,36 @@ class Prey(pygame.sprite.Sprite):
             self.closest_predator = None
 
     def update(self):
-        # angle to closest food
+        # If a predator is detected, flee from it
         if self.closest_predator is not None:
             direction_from_predator = (math.atan2(self.closest_predator[1] - self.y, self.closest_predator[0] - self.x) + math.pi) % (2 * math.pi)
-            angle_diff = (direction_from_predator - self.direction + math.pi) % (2 * math.pi) - math.pi
-            if abs(angle_diff) > self.turning_rate:
-                self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
+            if self.closest_food is not None:
+                # Creates cone of directions within which the prey will be able to hunt for food whilst fleeing prey
+                cone_bound_1 = (direction_from_predator + math.pi / 2) % (2 * math.pi)
+                cone_bound_2 = (direction_from_predator - math.pi / 2) % (2 * math.pi)
+                direction_to_food = (math.atan2(self.closest_food[1] - self.y, self.closest_food[0] - self.x) + math.pi) % (2 * math.pi)
+                if cone_bound_1 <= direction_to_food <= cone_bound_2 or cone_bound_2 <= direction_to_food <= cone_bound_1:
+                    # If food is within the cone of directions, follow it
+                    angle_diff = (direction_to_food - self.direction + math.pi) % (2 * math.pi) - math.pi
+                    if abs(angle_diff) > self.turning_rate:
+                        self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
+                    else:
+                        self.direction = direction_to_food
+                else:
+                    # If food is not within the cone, just flee from the predator
+                    angle_diff = (direction_from_predator - self.direction + math.pi) % (2 * math.pi) - math.pi
+                    if abs(angle_diff) > self.turning_rate:
+                        self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
+                    else:
+                        self.direction = direction_from_predator
             else:
-                self.direction = direction_from_predator
+                # If the prey can't see any food, just flee from the predator
+                angle_diff = (direction_from_predator - self.direction + math.pi) % (2 * math.pi) - math.pi
+                if abs(angle_diff) > self.turning_rate:
+                    self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
+                else:
+                    self.direction = direction_from_predator
+
         # If no predator is detected, follow food
         elif self.closest_food is not None:
             direction_to_food = math.atan2(self.closest_food[1] - self.y, self.closest_food[0] - self.x)
@@ -81,6 +103,7 @@ class Prey(pygame.sprite.Sprite):
                 self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
             else:
                 self.direction = direction_to_food
+
         # If no food or predator is detected, wander randomly
         else:
             target_point = np.array([random.randint(width/8, 7*width/8), random.randint(height/8, 7*height/8)])

@@ -17,7 +17,7 @@ class Predator(pygame.sprite.Sprite):
         self.speed = speed
         self.turning_rate = turning_rate
         self.prey_detection_radius = prey_detection_radius
-        self.hunger = 5
+        self.hunger = 4
         self.closest_prey = None
         self.closest_prey_id = None
 
