@@ -4,7 +4,7 @@ import numpy as np
 import random
 
 global width, height
-width, height = 1800, 800  # Set the dimensions of the simulation
+width, height = 1800, 1200  # Set the dimensions of the simulation
 
 class Prey(pygame.sprite.Sprite):
     def __init__(self, x, y, direction, speed, turning_rate, food_detection_radius, predator_detection_radius, colour, id):

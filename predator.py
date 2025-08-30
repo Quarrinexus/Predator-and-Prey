@@ -3,7 +3,7 @@ import math
 import numpy as np
 
 global width, height
-width, height = 1800, 800  # Set the dimensions of the simulation
+width, height = 1800, 1200  # Set the dimensions of the simulation
 
 class Predator(pygame.sprite.Sprite):
     def __init__(self, x, y, direction, speed, turning_rate, prey_detection_radius, colour):

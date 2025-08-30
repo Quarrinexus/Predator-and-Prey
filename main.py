@@ -9,7 +9,7 @@ import predator
 import plotting
 
 global width, height
-width, height = 1800, 800  # Set the dimensions of the simulation window
+width, height = 1800, 1200  # Set the dimensions of the simulation window
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -145,12 +145,11 @@ def main():
         random.randint(0, height), #y
         random.uniform(0, math.pi), #direction 
         random.uniform(3.0, 5.0), #speed
-        random.uniform(0.1, 0.15), #turning_rate
+        random.uniform(0.05, 0.1), #turning_rate
         random.randint(100, 200), #food_detection_radius
-        random.randint(30, 80), #predator_detection_radius
+        random.randint(100, 200), #predator_detection_radius
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), #colour
-        i+1  # Unique ID for each prey
-        ) 
+        i+1)  # Unique ID for each prey 
         for i in range(total_prey_created)
         )
     
@@ -161,10 +160,11 @@ def main():
         random.randint(0, height), #y
         random.uniform(0, math.pi), #direction
         random.uniform(3.0, 5.0), #speed
-        random.uniform(0.1, 0.15), #turning_rate
+        random.uniform(0.05, 0.1), #turning_rate
         random.randint(300, 500), #prey_detection_radius
-        (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) #colour
-        ) for i in range(10))
+        (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))) #colour
+        for i in range(15)
+        )
 
     # Main loop
     running = True
@@ -205,8 +205,10 @@ def main():
             counter = 0
             time += 1
             remove_starved_preys(preys)
-            plotting.gather_population_data(len(preys), len(predators), time)
+            plotting.record_time(time)
+            plotting.gather_population_data(len(preys), len(predators))
             plotting.gather_speed_data(preys, predators)
+            plotting.gather_turning_rate_data(preys, predators)
             times.append(time)
         elif counter == 15:
             removed_starved_predators(predators)
@@ -220,6 +222,7 @@ def main():
     pygame.quit()
     plotting.plot_population_data()
     plotting.plot_speed_data()
+    plotting.plot_turning_rate_data()
     logger.info("Simulation ended.")
     exit()
 
