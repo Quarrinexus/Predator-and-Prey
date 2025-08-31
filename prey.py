@@ -36,34 +36,6 @@ class Prey(pygame.sprite.Sprite):
     def draw(self, screen):
         pygame.draw.circle(screen, (255, 255, 0), (int(self.x), int(self.y)), 3)
 
-    def find_closest_food(self, food):
-        # NumPy optimization: food is expected to be a 2D np.array of shape (n, 2)
-        if len(food) == 0:
-            self.closest_food = None
-            return
-        pos = np.array([self.x, self.y])
-        dists = np.linalg.norm(food - pos, axis=1)
-        within_radius = np.where(dists < self.food_detection_radius)[0]
-        if within_radius.size > 0:
-            idx = within_radius[np.argmin(dists[within_radius])]
-            self.closest_food = food[idx]
-        else:
-            self.closest_food = None
-
-    def find_closest_predator(self, predators):
-        # NumPy optimization: predators is expected to be a 2D np.array of shape (n, 2)
-        if len(predators) == 0:
-            self.closest_predator = None
-            return
-        pos = np.array([self.x, self.y])
-        dists = np.linalg.norm(predators - pos, axis=1)
-        within_radius = np.where(dists < self.predator_detection_radius)[0]
-        if within_radius.size > 0:
-            idx = within_radius[np.argmin(dists[within_radius])]
-            self.closest_predator = predators[idx]
-        else:
-            self.closest_predator = None
-
     def update(self):
         # If a predator is detected, flee from it
         if self.closest_predator is not None:
