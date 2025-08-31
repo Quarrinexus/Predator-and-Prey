@@ -9,6 +9,7 @@ import time as tm
 import prey
 import predator
 import plotting
+import tensorflow as tf
 
 global width, height
 width, height = 1800, 1200  # Set the dimensions of the simulation window

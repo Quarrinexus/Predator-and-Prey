@@ -36,14 +36,7 @@ class Predator(pygame.sprite.Sprite):
         pygame.draw.rect(self.base_image, (255, 255, 0), self.base_image.get_rect(), 1)
 
     def update(self):
-        # angle to closest food
-        if self.closest_prey is not None:
-            direction_to_prey = math.atan2(self.closest_prey[1] - self.y, self.closest_prey[0] - self.x)
-            angle_diff = (direction_to_prey - self.direction + math.pi) % (2 * math.pi) - math.pi
-            if abs(angle_diff) > self.turning_rate:
-                self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
-            else:
-                self.direction = direction_to_prey
+        # free space to implement neural network decision making later
 
         # Rotate the image to face the direction
         pygame.draw.polygon(self.base_image, self.colour, [(20, 20), (0, 60), (40, 60)])
