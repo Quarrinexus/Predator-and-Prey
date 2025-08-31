@@ -45,7 +45,6 @@ def eat_food(food, preys, total_prey_created):
                     idx = matches[0]
                     remove_indices.append(idx)
                     p.hunger += 3
-                    p.find_closest_food(food)  # Recalculate closest food after eating
                     # Reproduce immediately for this prey
                     new_preys.append(prey.Prey(
                         p.x,
@@ -321,13 +320,13 @@ def main():
         t02 = tm.time()
         logger.debug(f"Drawing time: {t02 - t01} seconds")
         t1 = tm.time()
-        logger.info(f"Frame time: {t1 - t0} seconds")
+        logger.debug(f"Frame time: {t1 - t0} seconds")
 
     pygame.quit()
     plotting.plot_population_data()
     plotting.plot_speed_data()
     plotting.plot_turning_rate_data()
-    logger.notset("Simulation ended.")
+    logger.info("Simulation ended.")
     exit()
 
 if __name__ == "__main__":
