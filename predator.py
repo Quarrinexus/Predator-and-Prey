@@ -1,12 +1,13 @@
 import pygame
 import math
 import numpy as np
+from brain import Brain
 
 global width, height
 width, height = 1800, 1200  # Set the dimensions of the simulation
 
 class Predator(pygame.sprite.Sprite):
-    def __init__(self, x, y, direction, speed, turning_rate, prey_detection_radius, colour):
+    def __init__(self, x, y, direction, speed, turning_rate, colour):
         super().__init__()
         #initial position variables
         self.x = x
@@ -16,10 +17,13 @@ class Predator(pygame.sprite.Sprite):
         #attributes for movement and behaviour
         self.speed = speed
         self.turning_rate = turning_rate
-        self.prey_detection_radius = prey_detection_radius
         self.hunger = 4
+        self.max_hunger = 8
         self.closest_prey = None
         self.closest_prey_id = None
+
+        self.fitness = 0 # Number of prey caught
+        self.brain = Brain(input_size=3, hidden_size=16, output_size=1)
 
         #attributes for appearance (predator is a triangle)
         self.colour = colour
@@ -36,7 +40,26 @@ class Predator(pygame.sprite.Sprite):
         pygame.draw.rect(self.base_image, (255, 255, 0), self.base_image.get_rect(), 1)
 
     def update(self):
-        # free space to implement neural network decision making later
+        # neural network decision making
+        if self.closest_prey is not None:
+            dx_prey = self.closest_prey[0] - self.x
+            dy_prey = self.closest_prey[1] - self.y
+            distance_to_prey = math.hypot(dx_prey, dy_prey) / 400 # 400 is the detectoin range
+            angle_to_prey = math.atan2(dy_prey, dx_prey) - self.direction
+            angle_to_prey = (angle_to_prey + math.pi) % (2 * math.pi) - math.pi
+        else:
+            distance_to_prey = 1.0
+            angle_to_prey = 0.0
+
+        input_vector = np.array([
+            distance_to_prey,
+            angle_to_prey / math.pi,  # Normalize angle to -1..1
+            self.hunger / self.max_hunger,           # Normalize hunger to 0..1
+        ])
+        input_vector = input_vector.reshape((1, 3))  # Reshape for neural network input
+        output = self.brain.forward(input_vector)
+        change_in_direction = output[0][0] * self.turning_rate
+        self.direction += change_in_direction
 
         # Rotate the image to face the direction
         pygame.draw.polygon(self.base_image, self.colour, [(20, 20), (0, 60), (40, 60)])

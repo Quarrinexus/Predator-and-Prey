@@ -9,14 +9,13 @@ import time as tm
 import prey
 import predator
 import plotting
-import tensorflow as tf
 
 global width, height
 width, height = 1800, 1200  # Set the dimensions of the simulation window
 
 # Set up logger
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 stream_handler = logging.StreamHandler(stdout)
 logger.addHandler(stream_handler)
 
@@ -51,10 +50,8 @@ def eat_food(food, preys, total_prey_created):
                         p.x,
                         p.y,
                         (p.direction + random.uniform(math.pi/2, 3*math.pi/2)) % (2 * math.pi),  # Reverse direction
-                        p.speed + random.uniform(-0.1, 0.1),
-                        p.turning_rate + random.uniform(-0.01, 0.01),
-                        p.food_detection_radius + random.uniform(-20, 20),
-                        p.predator_detection_radius + random.uniform(-20, 20),
+                        p.speed,
+                        p.turning_rate,
                         (max(0, min(p.colour[0] + random.randint(-50, 50), 255)),
                          max(0, min(p.colour[1] + random.randint(-50, 50), 255)),
                          max(0, min(p.colour[2] + random.randint(-50, 50), 255))),
@@ -85,9 +82,8 @@ def eat_prey(predators, preys):
                         pred.x,
                         pred.y,
                         (pred.direction + math.pi) % (2 * math.pi),  # Reverse direction
-                        pred.speed + random.uniform(-0.1, 0.1),
-                        pred.turning_rate + random.uniform(-0.01, 0.01),
-                        pred.prey_detection_radius + random.uniform(-20, 20),
+                        pred.speed,
+                        pred.turning_rate,
                         (max(0, min(pred.colour[0] + random.randint(-50, 50), 255)),
                         max(0, min(pred.colour[1] + random.randint(-50, 50), 255)),
                         max(0, min(pred.colour[2] + random.randint(-50, 50), 255)))
@@ -116,50 +112,21 @@ def removed_starved_predators(predators):
 
 # Numba-accelerated function to find the closest food for each prey
 @numba.njit
-def find_closest_food_batch(prey_info, food_positions):
-    # prey_info is expected to be a 2D np.array of shape (n, 3) where each row is (x, y, food_detection_radius)
+def find_closest_entity_batch(eater_positions, food_positions, detection_radius):
+    # eater_info is expected to be a 2D np.array of shape (n, 3) where each row is (x, y, food_detection_radius)
     # food_positions is expected to be a 2D np.array of shape (m, 2) where each row is (x, y)
-    n_prey = prey_info.shape[0]
+    n_prey = eater_positions.shape[0]
     closest_indices = -np.ones(n_prey, dtype=np.int64)
     for i in range(n_prey):
-        diffs = food_positions - prey_info[i][0:2]
+        diffs = food_positions - eater_positions[i]
         dists = np.sqrt((diffs ** 2).sum(axis=1))
-        within_radius = np.where(dists < prey_info[i][2])[0]
+        within_radius = np.where(dists < detection_radius)[0]
         if within_radius.size > 0:
             idx = within_radius[np.argmin(dists[within_radius])]
             closest_indices[i] = idx
     return closest_indices
 
-@numba.njit
-def find_closest_predator_batch(prey_info, predator_positions):
-    # prey_info is expected to be a 2D np.array of shape (n, 3) where each row is (x, y, predator_detection_radius)
-    # predator_positions is expected to be a 2D np.array of shape (m, 2) where each row is (x, y)
-    n_prey = prey_info.shape[0]
-    closest_indices = -np.ones(n_prey, dtype=np.int64)
-    for i in range(n_prey):
-        diffs = predator_positions - prey_info[i][0:2]
-        dists = np.sqrt((diffs ** 2).sum(axis=1))
-        within_radius = np.where(dists < prey_info[i][2])[0]
-        if within_radius.size > 0:
-            idx = within_radius[np.argmin(dists[within_radius])]
-            closest_indices[i] = idx
-    return closest_indices
-
-@numba.njit
-def find_closest_prey_batch(predator_info, prey_positions):
-    # predator_info is expected to be a 2D np.array of shape (n, 3) where each row is (x, y, prey_detection_radius)
-    # prey_positions is expected to be a 2D np.array of shape (m, 2) where each row is (x, y)
-    n_pred = predator_info.shape[0]
-    closest_indices = -np.ones(n_pred, dtype=np.int64)
-    for i in range(n_pred):
-        diffs = prey_positions[:, 0:2] - predator_info[i][0:2]
-        dists = np.sqrt((diffs ** 2).sum(axis=1))
-        within_radius = np.where(dists < predator_info[i][2])[0]
-        if within_radius.size > 0:
-            idx = within_radius[np.argmin(dists[within_radius])]
-            closest_indices[i] = idx
-    return closest_indices
-
+    
 # Main function to run the simulation
 def main():
     pygame.init()
@@ -177,11 +144,6 @@ def main():
 
     total_prey_created = 20
 
-    # Set up population history arrays
-    prey_population_data = [10]
-    predator_population_data = [5]
-    times = [0]
-
     #Initialize start position and attributes for the simulation
     # Generate initial food
     food = np.array([(random.randint(0, width), random.randint(0, height)) for i in range(40)])
@@ -192,10 +154,8 @@ def main():
         random.randint(0, width), #x
         random.randint(0, height), #y
         random.uniform(0, math.pi), #direction 
-        random.uniform(3.0, 5.0), #speed
-        random.uniform(0.05, 0.1), #turning_rate
-        random.randint(100, 200), #food_detection_radius
-        random.randint(100, 200), #predator_detection_radius
+        3.0, #speed
+        0.05, #turning_rate
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), #colour
         i+1)  # Unique ID for each prey 
         for i in range(total_prey_created)
@@ -207,9 +167,8 @@ def main():
         random.randint(0, width), #x
         random.randint(0, height), #y
         random.uniform(0, math.pi), #direction
-        random.uniform(3.0, 5.0), #speed
-        random.uniform(0.05, 0.1), #turning_rate
-        random.randint(300, 500), #prey_detection_radius
+        3.0, #speed
+        0.05, #turning_rate
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))) #colour
         for i in range(15)
         )
@@ -227,19 +186,15 @@ def main():
         screen.fill((0, 0, 0))  # Fill with black
 
         # Generate food
-        t01 = tm.time()
         food = generate_food(food)
-        t02 = tm.time()
-        logger.debug(f"Food generation time: {t02 - t01} seconds")
         
-        t01 = tm.time()
         # Calculate closest food and predators for each prey using batch processing
         if predators and preys: # Both predators and preys exist
-            closest_predator_indices = find_closest_predator_batch(np.array([[p.x, p.y, p.predator_detection_radius] for p in preys]), np.array([[pred.x, pred.y] for pred in predators]))
-            closest_prey_indices = find_closest_prey_batch(np.array([[pred.x, pred.y, pred.prey_detection_radius] for pred in predators]), np.array([[p.x, p.y] for p in preys]))
-            closest_food_indices = find_closest_food_batch(np.array([[p.x, p.y, p.food_detection_radius] for p in preys]), food)
+            closest_predator_indices = find_closest_entity_batch(np.array([[p.x, p.y] for p in preys]), np.array([[pred.x, pred.y] for pred in predators]), 200)
+            closest_prey_indices = find_closest_entity_batch(np.array([[pred.x, pred.y] for pred in predators]), np.array([[p.x, p.y] for p in preys]), 400)
+            closest_food_indices = find_closest_entity_batch(np.array([[p.x, p.y] for p in preys]), food, 200)
         elif preys: # No predators
-            closest_food_indices = find_closest_food_batch(np.array([[p.x, p.y, p.food_detection_radius] for p in preys]), food)
+            closest_food_indices = find_closest_entity_batch(np.array([[p.x, p.y] for p in preys]), food, 200)
             closest_predator_indices = -np.ones(len(preys), dtype=np.int64)
             closest_prey_indices = np.array([])
         elif predators: # No preys
@@ -273,60 +228,41 @@ def main():
                 pred.closest_prey = None
                 pred.closest_prey_id = None
 
-        t02 = tm.time()
-        logger.debug(f"Closest entity calculation time: {t02 - t01} seconds")
-
 
         # Move preys and predators
-        t01 = tm.time()
         preys.update()
         predators.update()
-        t02 = tm.time()
-        logger.debug(f"Movement update time: {t02 - t01} seconds")
 
         # Handle eating food
-        t01 = tm.time()
         food, total_prey_created = eat_food(food, preys, total_prey_created)
         preys = eat_prey(predators, preys)
-        t012 = tm.time()
-        logger.debug(f"Eating update time: {t012 - t01} seconds")
 
         clock.tick(fps)
         counter += 1
         # Handles hunger decrease and starvation every 30 frames
         if counter == 30:
-            t01 = tm.time()
             counter = 0
             time += 1
-            remove_starved_preys(preys)
-            plotting.record_time(time)
-            plotting.gather_population_data(len(preys), len(predators))
-            plotting.gather_speed_data(preys, predators)
-            plotting.gather_turning_rate_data(preys, predators)
-            times.append(time)
-            t02 = tm.time()
-            logger.debug(f"Prey Hunger and data recording time: {t02 - t01} seconds")
+            #remove_starved_preys(preys)
+            #plotting.record_time(time)
+            #plotting.gather_population_data(len(preys), len(predators))
+            #plotting.gather_speed_data(preys, predators)
+            #plotting.gather_turning_rate_data(preys, predators)
         elif counter == 15:
-            t01 = tm.time()
             removed_starved_predators(predators)
-            t02 = tm.time()
-            logger.debug(f"Predator Hunger update time: {t02 - t01} seconds")
 
         # Update the display
-        t01 = tm.time()
         draw_food(screen, food)
         preys.draw(screen)
         predators.draw(screen)
         pygame.display.flip()
-        t02 = tm.time()
-        logger.debug(f"Drawing time: {t02 - t01} seconds")
         t1 = tm.time()
         logger.debug(f"Frame time: {t1 - t0} seconds")
 
     pygame.quit()
-    plotting.plot_population_data()
-    plotting.plot_speed_data()
-    plotting.plot_turning_rate_data()
+    #plotting.plot_population_data()
+    #plotting.plot_speed_data()
+    #plotting.plot_turning_rate_data()
     logger.info("Simulation ended.")
     exit()
 
