@@ -25,11 +25,18 @@ def draw_food(screen, food):
         pygame.draw.circle(screen, (255, 255, 0), tuple(f), 5)  # Draw food as yellow circles
 
 # Function to generate food
-def generate_food(food):
-    # Randomly generate new food items
-    for i in range(0 if random.randint(0, 100) > 40 else 1): # 40% chance to generate new food
-        new_food = np.array([(random.randint(0, width), random.randint(0, height))])
-        food = np.vstack([food, new_food])
+@numba.njit
+def generate_food(food, width, height):
+    if np.random.randint(0, 100) > 50:
+        num_new = 0
+    else:
+        num_new = 1
+    if num_new > 0:
+        new_food = np.empty((num_new, 2), dtype=np.int64)
+        for i in range(num_new):
+            new_food[i, 0] = np.random.randint(0, width)
+            new_food[i, 1] = np.random.randint(0, height)
+        food = np.vstack((food, new_food))
     return food
 
 def eat_food(food, preys, total_prey_created):
@@ -43,19 +50,19 @@ def eat_food(food, preys, total_prey_created):
                 if matches.size > 0:
                     idx = matches[0]
                     remove_indices.append(idx)
-                    prey.hunger = min(prey.max_hunger, prey.hunger + 3)
+                    prey.hunger = min(prey.max_hunger, prey.hunger + 3.0)
                     # Reproduce immediately for this prey
                     new_preys.append(Prey(
                         prey.x,
                         prey.y,
-                        (prey.direction + random.uniform(math.pi/2, 3*math.pi/2)) % (2 * math.pi),  # Reverse direction
+                        (prey.direction + random.uniform(math.pi/2, 3*math.pi/2)) % (2 * math.pi),  # Spit out in opposite direction with some randomness
                         prey.speed,
                         prey.turning_rate,
                         (max(0, min(prey.colour[0] + random.randint(-50, 50), 255)),
                          max(0, min(prey.colour[1] + random.randint(-50, 50), 255)),
                          max(0, min(prey.colour[2] + random.randint(-50, 50), 255))),
-                        total_prey_created,
-                        prey # parent of offspring
+                        total_prey_created, # Unique ID for new prey
+                        parent=prey # parent of offspring
                     ))
                     total_prey_created += 1
 
@@ -75,7 +82,7 @@ def eat_prey(predators, preys):
                 if len(matches) > 0:
                     prey_to_eat = matches[0]
                     preys.remove(prey_to_eat)
-                    pred.hunger = min(pred.max_hunger, pred.hunger + 3)
+                    pred.hunger = min(pred.max_hunger, pred.hunger + 3.0)
                     pred.closest_prey = None
                     new_predators.append(Predator(
                         pred.x,
@@ -86,7 +93,7 @@ def eat_prey(predators, preys):
                         (max(0, min(pred.colour[0] + random.randint(-50, 50), 255)),
                         max(0, min(pred.colour[1] + random.randint(-50, 50), 255)),
                         max(0, min(pred.colour[2] + random.randint(-50, 50), 255))),
-                        pred # Parent of offspring
+                        parent=pred # Parent of offspring
                     ))
 
     if new_predators:
@@ -94,19 +101,15 @@ def eat_prey(predators, preys):
     return preys
 
 # Function to remove starved preys
-def remove_starved_preys(preys):
-    for prey in preys:
-        prey.hunger -= 1 # Decrease hunger every second
-        if prey.hunger <= 0: # If hunger reaches zero, remove the prey
-            preys.remove(prey)
-    return preys
-
-def removed_starved_predators(predators):
-    for predator in predators:
-        predator.hunger -= 1 # Decrease hunger every second
-        if predator.hunger <= 0: # If hunger reaches zero, remove the predator
-            predators.remove(predator)
-    return predators
+def remove_starved_entities(entities):
+    to_remove = []
+    for entity in list(entities):
+        entity.hunger -= 1.0 # Decrease hunger every second
+        if entity.hunger <= 0: # If hunger reaches zero, remove the prey
+            to_remove.append(entity)
+    for entity in to_remove:
+        entities.remove(entity)
+    return entities
 
 # Numba-accelerated function to find the closest food for each prey
 @numba.njit
@@ -124,24 +127,55 @@ def find_closest_entity_batch(eater_positions, food_positions, detection_radius)
             closest_indices[i] = idx
     return closest_indices
 
+# Saves game state to a file
+def save_game_state(preys, predators, food, filename="savegame.npz"):
+    prey_data = np.array([[prey.x, prey.y, prey.direction, prey.id, prey.hunger, prey.fitness] for prey in preys])
+    predator_data = np.array([[pred.x, pred.y, pred.direction, pred.hunger, pred.fitness] for pred in predators])
+    prey_brains = np.array([prey.brain.get_weights() for prey in preys], dtype=object)
+    predator_brains = np.array([pred.brain.get_weights() for pred in predators], dtype=object)
+    np.savez(filename, prey_data=prey_data, predator_data=predator_data, prey_brains=prey_brains, predator_brains=predator_brains, food=food)
+    logger.info(f"Game state saved to {filename}")
+
+# Loads game state from a file
+def load_game_state(filename="savegame.npz"):
+    data = np.load(filename, allow_pickle=True)
+    food = data['food']
     
-# Main function to run the simulation
-def main():
-    pygame.init()
-    
-    # Set up the display
-    screen = pygame.display.set_mode((width, height))
-    pygame.display.set_caption("Predator and Prey Simulation")
-    pygame.display.set_icon(pygame.image.load("icon.png"))  # Loads icon
+    preys = pygame.sprite.Group(Prey(
+        prey_data[0], # x
+        prey_data[1], # y
+        prey_data[2], # direction
+        3.0, #speed
+        0.15, #turning_rate
+        (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), #colour
+        prey_data[3], # id
+        hunger=prey_data[4], # hunger
+        fitness=prey_data[5]  # fitness
+        ) for prey_data in data['prey_data']
+    )
+    for i, prey in enumerate(preys):
+        brain_weights = data['prey_brains'][i]
+        prey.brain.set_weights(brain_weights)
 
-    # Set up clock and FPS
-    clock = pygame.time.Clock()
-    fps = 30
-    counter = 0
-    time = 0
+    predators= pygame.sprite.Group(Predator(
+        pred_data[0], # x
+        pred_data[1], # y
+        pred_data[2], # direction
+        3.0, #speed
+        0.15, #turning_rate
+        (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), #colour
+        hunger=pred_data[3], # hunger
+        fitness=pred_data[4]  # fitness
+        ) for pred_data in data['predator_data']
+    )
+    for i, pred in enumerate(predators):
+        brain_weights = data['predator_brains'][i]
+        pred.brain.set_weights(brain_weights)
 
-    total_prey_created = 50
+    logger.info(f"Game state loaded from {filename}")
+    return preys, predators, food
 
+def start_new_simulation(total_prey_created=50, total_predators_created=50):
     #Initialize start position and attributes for the simulation
     # Generate initial food
     food = np.array([(random.randint(0, width), random.randint(0, height)) for i in range(100)])
@@ -157,7 +191,7 @@ def main():
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), #colour
         i+1)  # Unique ID for each prey 
         for i in range(total_prey_created)
-        )
+    )
     
     # Initialize predators
     predators = pygame.sprite.Group(
@@ -168,8 +202,34 @@ def main():
         3.0, #speed
         0.15, #turning_rate
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))) #colour
-        for i in range(50)
-        )
+        for i in range(total_predators_created)
+    )
+
+    return preys, predators, food
+    
+# Main function to run the simulation
+def main(new_simulation=True):
+    pygame.init()
+    
+    # Set up the display
+    screen = pygame.display.set_mode((width, height))
+    pygame.display.set_caption("Predator and Prey Simulation") # Sets window title
+    pygame.display.set_icon(pygame.image.load("icon.png")) # Loads icon
+
+    # Set up clock and FPS
+    clock = pygame.time.Clock()
+    fps = 30
+    counter = 0
+    time = 0
+
+    # Load previous game state or start a new simulation
+    if new_simulation:
+        total_prey_created = 50
+        total_predators_created = 50
+        preys, predators, food = start_new_simulation(total_prey_created, total_predators_created)
+    else:
+        preys, predators, food = load_game_state()
+        total_prey_created = max(prey.id for prey in preys) + 1 if preys else 1
 
     logger.debug("Simulation started.")
     # Main loop
@@ -184,7 +244,7 @@ def main():
         screen.fill((0, 0, 0))  # Fill with black
 
         # Generate food
-        food = generate_food(food)
+        food = generate_food(food, width, height)
         
         # Calculate closest food and predators for each prey using batch processing
         if predators and preys: # Both predators and preys exist
@@ -205,16 +265,17 @@ def main():
             closest_food_indices = np.array([])
         
         # Update closest food and predators for each prey
-        for i, p in enumerate(preys):
+        for i, prey in enumerate(preys):
             if closest_food_indices[i] != -1:
-                p.closest_food = food[closest_food_indices[i]]
+                prey.closest_food = food[closest_food_indices[i]]
             else:
-                p.closest_food = None
+                prey.closest_food = None
 
             if closest_predator_indices[i] != -1:
-                p.closest_predator = np.array([predators.sprites()[closest_predator_indices[i]].x, predators.sprites()[closest_predator_indices[i]].y])
+                prey.closest_predator = np.array([predators.sprites()[closest_predator_indices[i]].x, predators.sprites()[closest_predator_indices[i]].y])
+                prey.closest_predator_direction = predators.sprites()[closest_predator_indices[i]].direction
             else:
-                p.closest_predator = None
+                prey.closest_predator = None
 
         # Update closest prey for each predator
         for i, pred in enumerate(predators):
@@ -243,13 +304,11 @@ def main():
         if counter == 30:
             counter = 0
             time += 1
-            #remove_starved_preys(preys)
-            #plotting.record_time(time)
-            #plotting.gather_population_data(len(preys), len(predators))
-            #plotting.gather_speed_data(preys, predators)
-            #plotting.gather_turning_rate_data(preys, predators)
+            remove_starved_entities(preys)
+            plotting.record_time(time)
+            plotting.gather_population_data(len(preys), len(predators))
         elif counter == 15:
-            removed_starved_predators(predators)
+            remove_starved_entities(predators)
 
         # Update the display
         draw_food(screen, food)
@@ -257,21 +316,21 @@ def main():
         predators.draw(screen)
         pygame.display.flip()
         t1 = tm.time()
-        logger.debug(f"Frame time: {t1 - t0} seconds")
+        logger.info(f"Frame time: {t1 - t0} seconds")
 
     pygame.quit()
-    #plotting.plot_population_data()
-    #plotting.plot_speed_data()
-    #plotting.plot_turning_rate_data()
+    save_game_state(preys, predators, food)
+    plotting.plot_population_data()
     logger.info("Simulation ended.")
     exit()
 
 if __name__ == "__main__":
-    main()
+    #import cProfile
+    #cProfile.run('main()', 'profile.out') # use snakeviz to view the profile data
+    main(True) # Set to True to start a new simulation, False to load from save
 
 """
 To do list:
--Record and plot population and trait data
 -Multiprocessing for performance?
 -Use variables for prey and predator attributes for easier tuning
 """

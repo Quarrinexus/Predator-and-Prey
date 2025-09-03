@@ -7,7 +7,7 @@ global width, height
 width, height = 1800, 1200  # Set the dimensions of the simulation
 
 class Predator(pygame.sprite.Sprite):
-    def __init__(self, x, y, direction, speed, turning_rate, colour, parent=None):
+    def __init__(self, x, y, direction, speed, turning_rate, colour, hunger=8.0, fitness=0.0, parent=None):
         super().__init__()
         #initial position variables
         self.x = x
@@ -17,13 +17,13 @@ class Predator(pygame.sprite.Sprite):
         #attributes for movement and behaviour
         self.speed = speed
         self.turning_rate = turning_rate
-        self.hunger = 6
-        self.max_hunger = 16
+        self.hunger = hunger
+        self.max_hunger = 16.0
         self.closest_prey = None
         self.closest_prey_direction = None
         self.closest_prey_id = None
 
-        self.fitness = 0 # Number of prey caught
+        self.fitness = fitness # Number of prey caught
         self.brain = Brain(input_size=5, hidden_size=16, output_size=1, parent_brain=None if parent is None else parent.brain)
 
         #attributes for appearance (predator is a triangle)
@@ -51,6 +51,7 @@ class Predator(pygame.sprite.Sprite):
         else:
             distance_to_prey = -1.0
             angle_to_prey = 0.0
+            self.closest_prey_direction = 0.0
 
         input_vector = np.array([
             distance_to_prey,
