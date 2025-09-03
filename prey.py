@@ -7,7 +7,7 @@ global width, height
 width, height = 1800, 1200  # Set the dimensions of the simulation
 
 class Prey(pygame.sprite.Sprite):
-    def __init__(self, x, y, direction, speed, turning_rate, colour, id):
+    def __init__(self, x, y, direction, speed, turning_rate, colour, id, parent=None):
         super().__init__()
         #initial position variables
         self.x = x
@@ -18,13 +18,13 @@ class Prey(pygame.sprite.Sprite):
         #attributes for movement and behaviour
         self.speed = speed
         self.turning_rate = turning_rate
-        self.hunger = 8
+        self.hunger = 4
         self.max_hunger = 16
         self.closest_food = None
         self.closest_predator = None
 
         self.fitness = 0 # Number of food items eaten
-        self.brain = Brain(input_size=5, hidden_size=16, output_size=1)
+        self.brain = Brain(input_size=6, hidden_size=16, output_size=1, parent_brain=None if parent is None else parent.brain)
 
         #attributes for appearance
         self.colour = colour
@@ -57,7 +57,7 @@ class Prey(pygame.sprite.Sprite):
             angle_to_predator = math.atan2(dy_pred, dx_pred) - self.direction
             angle_to_predator = (angle_to_predator + math.pi) % (2 * math.pi) - math.pi
         else:
-            distance_to_predator = 1.0
+            distance_to_predator = -1.0
             angle_to_predator = 0.0
 
         input_vector = np.array([
@@ -65,12 +65,13 @@ class Prey(pygame.sprite.Sprite):
             angle_to_food,
             distance_to_predator,
             angle_to_predator,
+            self.direction / math.pi,  # Normalize direction to -1..1
             self.hunger / self.max_hunger
         ])
-        input_vector = input_vector.reshape((1, 5))
+        input_vector = input_vector.reshape((1, 6)) # Reshape for neural network input
         output = self.brain.forward(input_vector)
         change_in_direction = output[0][0] * self.turning_rate
-        self.direction += change_in_direction
+        self.direction = (self.direction + change_in_direction + math.pi) % (2 * math.pi) - math.pi
 
         # Move the prey in the current direction
         self.x += self.speed * math.cos(self.direction)

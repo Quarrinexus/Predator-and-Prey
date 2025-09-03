@@ -6,8 +6,8 @@ import numpy as np
 import logging
 import numba
 import time as tm
-import prey
-import predator
+from prey import Prey
+from predator import Predator
 import plotting
 
 global width, height
@@ -27,7 +27,7 @@ def draw_food(screen, food):
 # Function to generate food
 def generate_food(food):
     # Randomly generate new food items
-    for i in range(0 if random.randint(0, 100) > 30 else 1): # 30% chance to generate new food
+    for i in range(0 if random.randint(0, 100) > 40 else 1): # 40% chance to generate new food
         new_food = np.array([(random.randint(0, width), random.randint(0, height))])
         food = np.vstack([food, new_food])
     return food
@@ -35,27 +35,27 @@ def generate_food(food):
 def eat_food(food, preys, total_prey_created):
     remove_indices = []
     new_preys = []
-    for p in preys:
-        if p.closest_food is not None:
-            dist = np.linalg.norm(np.array([p.x, p.y]) - p.closest_food)
+    for prey in preys:
+        if prey.closest_food is not None:
+            dist = np.linalg.norm(np.array([prey.x, prey.y]) - prey.closest_food)
             if dist < 25:
-                matches = np.where((food == p.closest_food).all(axis=1))[0]
+                matches = np.where((food == prey.closest_food).all(axis=1))[0]
                 if matches.size > 0:
-                    logger.debug(f"Prey at ({p.x}, {p.y}) has eaten food at {tuple(p.closest_food)} and reproduced!")
                     idx = matches[0]
                     remove_indices.append(idx)
-                    p.hunger += 3
+                    prey.hunger = min(prey.max_hunger, prey.hunger + 3)
                     # Reproduce immediately for this prey
-                    new_preys.append(prey.Prey(
-                        p.x,
-                        p.y,
-                        (p.direction + random.uniform(math.pi/2, 3*math.pi/2)) % (2 * math.pi),  # Reverse direction
-                        p.speed,
-                        p.turning_rate,
-                        (max(0, min(p.colour[0] + random.randint(-50, 50), 255)),
-                         max(0, min(p.colour[1] + random.randint(-50, 50), 255)),
-                         max(0, min(p.colour[2] + random.randint(-50, 50), 255))),
-                        total_prey_created
+                    new_preys.append(Prey(
+                        prey.x,
+                        prey.y,
+                        (prey.direction + random.uniform(math.pi/2, 3*math.pi/2)) % (2 * math.pi),  # Reverse direction
+                        prey.speed,
+                        prey.turning_rate,
+                        (max(0, min(prey.colour[0] + random.randint(-50, 50), 255)),
+                         max(0, min(prey.colour[1] + random.randint(-50, 50), 255)),
+                         max(0, min(prey.colour[2] + random.randint(-50, 50), 255))),
+                        total_prey_created,
+                        prey # parent of offspring
                     ))
                     total_prey_created += 1
 
@@ -71,14 +71,13 @@ def eat_prey(predators, preys):
         if pred.closest_prey is not None:
             dist = np.linalg.norm(np.array([pred.x, pred.y]) - np.array([pred.closest_prey[0], pred.closest_prey[1]]))
             if dist < 20:
-                matches = [p for p in preys if p.id == pred.closest_prey_id]
+                matches = [prey for prey in preys if prey.id == pred.closest_prey_id]
                 if len(matches) > 0:
-                    logger.debug(f"A predator at ({pred.x}, {pred.y}) has eaten a prey at {tuple(pred.closest_prey)} and reproduced!")
                     prey_to_eat = matches[0]
                     preys.remove(prey_to_eat)
-                    pred.hunger += 1
+                    pred.hunger = min(pred.max_hunger, pred.hunger + 3)
                     pred.closest_prey = None
-                    new_predators.append(predator.Predator(
+                    new_predators.append(Predator(
                         pred.x,
                         pred.y,
                         (pred.direction + math.pi) % (2 * math.pi),  # Reverse direction
@@ -86,7 +85,8 @@ def eat_prey(predators, preys):
                         pred.turning_rate,
                         (max(0, min(pred.colour[0] + random.randint(-50, 50), 255)),
                         max(0, min(pred.colour[1] + random.randint(-50, 50), 255)),
-                        max(0, min(pred.colour[2] + random.randint(-50, 50), 255)))
+                        max(0, min(pred.colour[2] + random.randint(-50, 50), 255))),
+                        pred # Parent of offspring
                     ))
 
     if new_predators:
@@ -95,19 +95,17 @@ def eat_prey(predators, preys):
 
 # Function to remove starved preys
 def remove_starved_preys(preys):
-    for p in preys:
-        p.hunger -= 1 # Decrease hunger every second
-        if p.hunger <= 0: # If hunger reaches zero, remove the prey
-            preys.remove(p)
-            logger.debug(f"A prey at ({p.x}, {p.y}) has starved to death.")
+    for prey in preys:
+        prey.hunger -= 1 # Decrease hunger every second
+        if prey.hunger <= 0: # If hunger reaches zero, remove the prey
+            preys.remove(prey)
     return preys
 
 def removed_starved_predators(predators):
-    for p in predators:
-        p.hunger -= 1 # Decrease hunger every second
-        if p.hunger <= 0: # If hunger reaches zero, remove the predator
-            predators.remove(p)
-            logger.debug(f"A predator at ({p.x}, {p.y}) has starved to death.")
+    for predator in predators:
+        predator.hunger -= 1 # Decrease hunger every second
+        if predator.hunger <= 0: # If hunger reaches zero, remove the predator
+            predators.remove(predator)
     return predators
 
 # Numba-accelerated function to find the closest food for each prey
@@ -142,20 +140,20 @@ def main():
     counter = 0
     time = 0
 
-    total_prey_created = 20
+    total_prey_created = 50
 
     #Initialize start position and attributes for the simulation
     # Generate initial food
-    food = np.array([(random.randint(0, width), random.randint(0, height)) for i in range(40)])
+    food = np.array([(random.randint(0, width), random.randint(0, height)) for i in range(100)])
 
     # Initialize prey
     preys = pygame.sprite.Group(
-        prey.Prey(
+        Prey(
         random.randint(0, width), #x
         random.randint(0, height), #y
         random.uniform(0, math.pi), #direction 
         3.0, #speed
-        0.05, #turning_rate
+        0.15, #turning_rate
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), #colour
         i+1)  # Unique ID for each prey 
         for i in range(total_prey_created)
@@ -163,14 +161,14 @@ def main():
     
     # Initialize predators
     predators = pygame.sprite.Group(
-        predator.Predator(
+        Predator(
         random.randint(0, width), #x
         random.randint(0, height), #y
         random.uniform(0, math.pi), #direction
         3.0, #speed
-        0.05, #turning_rate
+        0.15, #turning_rate
         (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))) #colour
-        for i in range(15)
+        for i in range(50)
         )
 
     logger.debug("Simulation started.")
@@ -223,9 +221,11 @@ def main():
             if closest_prey_indices[i] != -1:
                 prey_found = preys.sprites()[closest_prey_indices[i]]
                 pred.closest_prey = np.array([prey_found.x, prey_found.y])
+                pred.closest_prey_direction = preys.sprites()[closest_prey_indices[i]].direction
                 pred.closest_prey_id = prey_found.id
             else:
                 pred.closest_prey = None
+                pred.closest_prey_direction = 0.0
                 pred.closest_prey_id = None
 
 
