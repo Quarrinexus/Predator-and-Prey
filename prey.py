@@ -7,7 +7,7 @@ global width, height
 width, height = 1800, 1200  # Set the dimensions of the simulation
 
 class Prey(pygame.sprite.Sprite):
-    def __init__(self, x, y, direction, speed, turning_rate, colour, id, hunger=8.0, fitness=0.0, parent=None):
+    def __init__(self, x, y, direction, speed, turning_rate, colour, hunger=8.0, fitness=0, parent=None):
         super().__init__()
         #initial position variables
         self.x = x
@@ -34,7 +34,7 @@ class Prey(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(self.x, self.y))
 
     def __repr__(self):
-        return f"Prey(id = {self.id}, x={self.x}, y={self.y}, direction={self.direction}, speed={self.speed}, colour={self.colour}), closest_food={self.closest_food})"
+        return f"Prey(x={self.x}, y={self.y}, direction={self.direction}, closest_food={self.closest_food})"
 
     def draw(self, screen):
         pygame.draw.circle(screen, (255, 255, 0), (int(self.x), int(self.y)), 3)

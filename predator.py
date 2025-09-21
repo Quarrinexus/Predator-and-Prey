@@ -7,7 +7,7 @@ global width, height
 width, height = 1800, 1200  # Set the dimensions of the simulation
 
 class Predator(pygame.sprite.Sprite):
-    def __init__(self, x, y, direction, speed, turning_rate, colour, hunger=8.0, fitness=0.0, parent=None):
+    def __init__(self, x, y, direction, speed, turning_rate, colour, hunger=8.0, fitness=0, parent=None):
         super().__init__()
         #initial position variables
         self.x = x
@@ -21,7 +21,6 @@ class Predator(pygame.sprite.Sprite):
         self.max_hunger = 16.0
         self.closest_prey = None
         self.closest_prey_direction = None
-        self.closest_prey_id = None
 
         self.fitness = fitness # Number of prey caught
         self.brain = Brain(input_size=5, hidden_size=16, output_size=1, parent_brain=None if parent is None else parent.brain)
@@ -34,7 +33,7 @@ class Predator(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(self.x, self.y))
 
     def __repr__(self):
-        return f"Predator(x={self.x}, y={self.y}, direction={self.direction}, speed={self.speed}, closest_prey={self.closest_prey})"
+        return f"Predator(x={self.x}, y={self.y}, direction={self.direction}, closest_prey={self.closest_prey})"
     
     def draw(self, screen):
         pygame.draw.circle(screen, (255, 255, 0), (int(self.x), int(self.y)), 3)
@@ -64,7 +63,6 @@ class Predator(pygame.sprite.Sprite):
         output = self.brain.forward(input_vector)
         change_in_direction = output[0][0] * self.turning_rate
         self.direction = (self.direction + change_in_direction + math.pi) % (2 * math.pi) - math.pi
-
 
         # Rotate the image to face the direction
         pygame.draw.polygon(self.base_image, self.colour, [(20, 20), (0, 60), (40, 60)])
