@@ -25,7 +25,7 @@ class Prey(pygame.sprite.Sprite):
         self.closest_predator_direction = 0.0
 
         self.fitness = fitness # Number of food items eaten
-        self.brain = Brain(input_size=7, hidden_size=16, output_size=1, parent_brain=None if parent is None else parent.brain)
+        self.brain = Brain(input_size=7, first_hidden_size=8, second_hidden_size=8, output_size=1, parent_brain=None if parent is None else parent.brain)
 
         #attributes for appearance
         self.colour = colour
@@ -44,7 +44,7 @@ class Prey(pygame.sprite.Sprite):
         if self.closest_food is not None:
             dx_food = self.closest_food[0] - self.x
             dy_food = self.closest_food[1] - self.y
-            distance_to_food = math.hypot(dx_food, dy_food) / 200
+            distance_to_food = math.hypot(dx_food, dy_food)
             angle_to_food = math.atan2(dy_food, dx_food) - self.direction
             angle_to_food = (angle_to_food + math.pi) % (2 * math.pi) - math.pi
         else:
@@ -54,7 +54,7 @@ class Prey(pygame.sprite.Sprite):
         if self.closest_predator is not None:
             dx_pred = self.closest_predator[0] - self.x
             dy_pred = self.closest_predator[1] - self.y
-            distance_to_predator = math.hypot(dx_pred, dy_pred) / 200
+            distance_to_predator = math.hypot(dx_pred, dy_pred)
             angle_to_predator = math.atan2(dy_pred, dx_pred) - self.direction
             angle_to_predator = (angle_to_predator + math.pi) % (2 * math.pi) - math.pi
         else:
@@ -63,16 +63,16 @@ class Prey(pygame.sprite.Sprite):
             self.closest_predator_direction = 0.0
 
         input_vector = np.array([
-            distance_to_food,
-            angle_to_food,
-            distance_to_predator,
-            angle_to_predator,
+            distance_to_food / 200, # Normalize closest food distance to 0..1
+            angle_to_food / math.pi, # Normalize angle to -1..1
+            distance_to_predator / 200, # Normalize closest predator distance to 0..1
+            angle_to_predator / math.pi, # Normalize angle to -1..1
             self.closest_predator_direction / math.pi, # Normalize angle to -1..1
             self.direction / math.pi,  # Normalize angle to -1..1
-            self.hunger / self.max_hunger
+            self.hunger / self.max_hunger # Normalize hunger to 0..1
         ])
         input_vector = input_vector.reshape((1, 7)) # Reshape for neural network input
-        output = self.brain.forward(input_vector)
+        output = self.brain.forward(input_vector, self.brain.W1, self.brain.b1, self.brain.W2, self.brain.b2, self.brain.W3, self.brain.b3)
         change_in_direction = output[0][0] * self.turning_rate
         self.direction = (self.direction + change_in_direction + math.pi) % (2 * math.pi) - math.pi
 
