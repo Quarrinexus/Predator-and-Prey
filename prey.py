@@ -1,13 +1,13 @@
 import pygame
 import math
 import numpy as np
-import random
+from brain import Brain
 
 global width, height
 width, height = 1800, 1200  # Set the dimensions of the simulation
 
 class Prey(pygame.sprite.Sprite):
-    def __init__(self, x, y, direction, speed, turning_rate, food_detection_radius, predator_detection_radius, colour, id):
+    def __init__(self, x, y, direction, speed, turning_rate, colour, hunger=8.0, fitness=0, parent=None):
         super().__init__()
         #initial position variables
         self.x = x
@@ -18,11 +18,14 @@ class Prey(pygame.sprite.Sprite):
         #attributes for movement and behaviour
         self.speed = speed
         self.turning_rate = turning_rate
-        self.food_detection_radius = food_detection_radius
-        self.predator_detection_radius = predator_detection_radius
-        self.hunger = 8
+        self.hunger = hunger
+        self.max_hunger = 16.0
         self.closest_food = None
         self.closest_predator = None
+        self.closest_predator_direction = 0.0
+
+        self.fitness = fitness # Number of food items eaten
+        self.brain = Brain(input_size=7, first_hidden_size=8, second_hidden_size=8, output_size=1, parent_brain=None if parent is None else parent.brain)
 
         #attributes for appearance
         self.colour = colour
@@ -31,60 +34,47 @@ class Prey(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(self.x, self.y))
 
     def __repr__(self):
-        return f"Prey(id = {self.id}, x={self.x}, y={self.y}, direction={self.direction}, speed={self.speed}, colour={self.colour}), closest_food={self.closest_food})"
+        return f"Prey(x={self.x}, y={self.y}, direction={self.direction}, closest_food={self.closest_food})"
 
     def draw(self, screen):
         pygame.draw.circle(screen, (255, 255, 0), (int(self.x), int(self.y)), 3)
 
     def update(self):
-        # If a predator is detected, flee from it
-        if self.closest_predator is not None:
-            direction_from_predator = (math.atan2(self.closest_predator[1] - self.y, self.closest_predator[0] - self.x) + math.pi) % (2 * math.pi)
-            if self.closest_food is not None:
-                # Creates cone of directions within which the prey will be able to hunt for food whilst fleeing prey
-                cone_bound_1 = (direction_from_predator + math.pi / 2) % (2 * math.pi)
-                cone_bound_2 = (direction_from_predator - math.pi / 2) % (2 * math.pi)
-                direction_to_food = (math.atan2(self.closest_food[1] - self.y, self.closest_food[0] - self.x) + math.pi) % (2 * math.pi)
-                if cone_bound_1 <= direction_to_food <= cone_bound_2 or cone_bound_2 <= direction_to_food <= cone_bound_1:
-                    # If food is within the cone of directions, follow it
-                    angle_diff = (direction_to_food - self.direction + math.pi) % (2 * math.pi) - math.pi
-                    if abs(angle_diff) > self.turning_rate:
-                        self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
-                    else:
-                        self.direction = direction_to_food
-                else:
-                    # If food is not within the cone, just flee from the predator
-                    angle_diff = (direction_from_predator - self.direction + math.pi) % (2 * math.pi) - math.pi
-                    if abs(angle_diff) > self.turning_rate:
-                        self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
-                    else:
-                        self.direction = direction_from_predator
-            else:
-                # If the prey can't see any food, just flee from the predator
-                angle_diff = (direction_from_predator - self.direction + math.pi) % (2 * math.pi) - math.pi
-                if abs(angle_diff) > self.turning_rate:
-                    self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
-                else:
-                    self.direction = direction_from_predator
-
-        # If no predator is detected, follow food
-        elif self.closest_food is not None:
-            direction_to_food = math.atan2(self.closest_food[1] - self.y, self.closest_food[0] - self.x)
-            angle_diff = (direction_to_food - self.direction + math.pi) % (2 * math.pi) - math.pi
-            if abs(angle_diff) > self.turning_rate:
-                self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
-            else:
-                self.direction = direction_to_food
-
-        # If no food or predator is detected, wander randomly
+        # neural network decision making
+        if self.closest_food is not None:
+            dx_food = self.closest_food[0] - self.x
+            dy_food = self.closest_food[1] - self.y
+            distance_to_food = math.hypot(dx_food, dy_food)
+            angle_to_food = math.atan2(dy_food, dx_food) - self.direction
+            angle_to_food = (angle_to_food + math.pi) % (2 * math.pi) - math.pi
         else:
-            target_point = np.array([random.randint(width/8, 7*width/8), random.randint(height/8, 7*height/8)])
-            direction_to_target = math.atan2(target_point[1] - self.y, target_point[0] - self.x)
-            angle_diff = (direction_to_target - self.direction + math.pi) % (2 * math.pi) - math.pi
-            if abs(angle_diff) > self.turning_rate:
-                self.direction += self.turning_rate * (1 if angle_diff > 0 else -1)
-            else:
-                self.direction = direction_to_target
+            distance_to_food = 1.0
+            angle_to_food = 0.0
+
+        if self.closest_predator is not None:
+            dx_pred = self.closest_predator[0] - self.x
+            dy_pred = self.closest_predator[1] - self.y
+            distance_to_predator = math.hypot(dx_pred, dy_pred)
+            angle_to_predator = math.atan2(dy_pred, dx_pred) - self.direction
+            angle_to_predator = (angle_to_predator + math.pi) % (2 * math.pi) - math.pi
+        else:
+            distance_to_predator = -1.0
+            angle_to_predator = 0.0
+            self.closest_predator_direction = 0.0
+
+        input_vector = np.array([
+            distance_to_food / 200, # Normalize closest food distance to 0..1
+            angle_to_food / math.pi, # Normalize angle to -1..1
+            distance_to_predator / 200, # Normalize closest predator distance to 0..1
+            angle_to_predator / math.pi, # Normalize angle to -1..1
+            self.closest_predator_direction / math.pi, # Normalize angle to -1..1
+            self.direction / math.pi,  # Normalize angle to -1..1
+            self.hunger / self.max_hunger # Normalize hunger to 0..1
+        ])
+        input_vector = input_vector.reshape((1, 7)) # Reshape for neural network input
+        output = self.brain.forward(input_vector, self.brain.W1, self.brain.b1, self.brain.W2, self.brain.b2, self.brain.W3, self.brain.b3)
+        change_in_direction = output[0][0] * self.turning_rate
+        self.direction = (self.direction + change_in_direction + math.pi) % (2 * math.pi) - math.pi
 
         # Move the prey in the current direction
         self.x += self.speed * math.cos(self.direction)

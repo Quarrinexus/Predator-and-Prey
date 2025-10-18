@@ -1,110 +1,76 @@
+import multiprocessing as mp
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
-prey_population_data = []
-predator_population_data = []
+class RealTimePlotter(mp.Process):
+    def __init__(self, data_queue):
+        super().__init__()
+        self.data_queue = data_queue # corresponds to population_queue in main.py
 
-prey_avg_speed_data = []
-predator_avg_speed_data = []
-prey_max_speed_data = []
-predator_max_speed_data = []
-prey_min_speed_data = []
-predator_min_speed_data = []
+        # Enable interactive mode so updates appear without blocking
+        plt.ion()
 
-prey_avg_turning_rate = []
-predator_avg_turning_rate = []
-prey_max_turning_rate = []
-predator_max_turning_rate = []
-prey_min_turning_rate = []
-predator_min_turning_rate = []
+        # Storage for times and population series
+        self.prey_population_data = []
+        self.predator_population_data = []
+        self.times = []
 
-times = []
+        # Create figure and axes (note: creating GUI objects here may initialize GUI in parent process)
+        self.fig, self.ax = plt.subplots()
+        # Set the window title via the canvas manager (cross-backend)
+        self.fig.canvas.manager.set_window_title('Real-Time Population Plotter')
+        # Create empty lines for prey and predator that will be updated
+        self.line1, = self.ax.plot([], [], label='Prey Population')
+        self.line2, = self.ax.plot([], [], label='Predator Population')
+        # Set initial axis limits and labels
+        self.ax.set_xlim(0, 10)
+        self.ax.set_ylim(0, 100)
+        self.ax.set_xlabel("Time / seconds")
+        self.ax.set_ylabel("Population")
+        self.ax.set_title("Predator and Prey Populations against Time")
+        self.ax.legend()
 
-def record_time(time):
-    times.append(time)
 
-def gather_population_data(prey_population, predator_population):
-    prey_population_data.append(prey_population)
-    predator_population_data.append(predator_population)
+    def update_plot(self, frame=None):
+        if len(self.times) > 0:
+            # update line data
+            self.line1.set_data(self.times, self.prey_population_data)
+            self.line2.set_data(self.times, self.predator_population_data)
+            # extend x-axis slightly past last time point
+            self.ax.set_xlim(0, max(self.times) + 1)
+            # set y-axis to fit max population + margin
+            max_population = max(max(self.prey_population_data), max(self.predator_population_data))
+            self.ax.set_ylim(0, max_population + 10)
+            # recompute limits and redraw efficiently
+            self.ax.relim()
+            self.ax.autoscale_view()
+            self.fig.canvas.draw_idle()
 
-def gather_speed_data(preys, predators):
-    prey_speeds = [p.speed for p in preys]
-    predator_speeds = [p.speed for p in predators]
+    def record_time(self, time):
+        # Append a new time value used as the x-axis
+        self.times.append(time)
 
-    if prey_speeds:
-        # Prey speed data
-        prey_avg_speed_data.append(sum(prey_speeds) / len(prey_speeds))
-        prey_max_speed_data.append(max(prey_speeds))
-        prey_min_speed_data.append(min(prey_speeds))
-    if predator_speeds:
-        # Predator speed data
-        predator_avg_speed_data.append(sum(predator_speeds) / len(predator_speeds))
-        predator_max_speed_data.append(max(predator_speeds))
-        predator_min_speed_data.append(min(predator_speeds))
+    def gather_population_data(self, prey_population, predator_population):
+        # Append latest population counts to respective series
+        self.prey_population_data.append(prey_population)
+        self.predator_population_data.append(predator_population)
 
-def gather_turning_rate_data(preys, predators):
-    prey_turning_rates = [p.turning_rate for p in preys]
-    predator_turning_rates = [p.turning_rate for p in predators]
-
-    if prey_turning_rates:
-        prey_avg_turning_rate.append(sum(prey_turning_rates) / len(prey_turning_rates))
-        prey_max_turning_rate.append(max(prey_turning_rates))
-        prey_min_turning_rate.append(min(prey_turning_rates))
-    if predator_turning_rates:
-        predator_avg_turning_rate.append(sum(predator_turning_rates) / len(predator_turning_rates))
-        predator_max_turning_rate.append(max(predator_turning_rates))
-        predator_min_turning_rate.append(min(predator_turning_rates))
-
-def plot_population_data():
-    plt.plot(times, prey_population_data, label = 'Prey Population')
-    plt.plot(times, predator_population_data, label = 'Predator Population')
-    plt.legend()
-    plt.xlabel("Time / seconds")
-    plt.ylabel("Population")
-    plt.title("Predator and Prey Populations against time")
-    plt.show()
-
-def plot_speed_data():
-    t_prey = times[0:len(prey_avg_speed_data)]
-    t_pred = times[0:len(predator_avg_speed_data)]
-
-    # Plot average, min, and max lines
-    plt.plot(t_prey, prey_avg_speed_data, label='Prey Speed', color='green')
-    plt.plot(t_pred, predator_avg_speed_data, label='Predator Speed', color='red')
-    plt.plot(t_prey, prey_max_speed_data, color='lightgreen')
-    plt.plot(t_pred, predator_max_speed_data, color='pink')
-    plt.plot(t_prey, prey_min_speed_data, color='lightgreen')
-    plt.plot(t_pred, predator_min_speed_data, color='pink')
-
-    # Shade between min and max for prey
-    plt.fill_between(t_prey, prey_min_speed_data, prey_max_speed_data, color='green', alpha=0.15)
-    # Shade between min and max for predator
-    plt.fill_between(t_pred, predator_min_speed_data, predator_max_speed_data, color='red', alpha=0.15)
-
-    plt.legend()
-    plt.xlabel("Time / seconds")
-    plt.ylabel("Speed")
-    plt.title("Predator and Prey Speeds against time")
-    plt.show()
-
-def plot_turning_rate_data():
-    t_prey = times[0:len(prey_avg_turning_rate)]
-    t_pred = times[0:len(predator_avg_turning_rate)]
-
-    # Plot average, min, and max lines for turning rates
-    plt.plot(t_prey, prey_avg_turning_rate, label='Prey Turning Rate', color='green')
-    plt.plot(t_pred, predator_avg_turning_rate, label='Predator Turning Rate', color='red')
-    plt.plot(t_prey, prey_max_turning_rate, color='lightgreen')
-    plt.plot(t_pred, predator_max_turning_rate, color='pink')
-    plt.plot(t_prey, prey_min_turning_rate, color='lightgreen')
-    plt.plot(t_pred, predator_min_turning_rate, color='pink')
-
-    # Shade between min and max for prey turning rates
-    plt.fill_between(t_prey, prey_min_turning_rate, prey_max_turning_rate, color='green', alpha=0.15)
-    # Shade between min and max for predator turning rates
-    plt.fill_between(t_pred, predator_min_turning_rate, predator_max_turning_rate, color='red', alpha=0.15)
-
-    plt.legend()
-    plt.xlabel("Time / seconds")
-    plt.ylabel("Turning Rate")
-    plt.title("Predator and Prey Turning Rates against time")
-    plt.show()
+    def run(self):
+        running = True
+        while running:
+            if not self.data_queue.empty():
+                time, prey_population, predator_population = self.data_queue.get()
+                # Quit signal handling
+                if time == "QUIT":
+                    running = False
+                    break
+                # Store and visualize new data point
+                self.record_time(time)
+                self.gather_population_data(prey_population, predator_population)
+                self.update_plot()
+                # Allow GUI event loop to process events and show updates
+                plt.pause(0.5)
+            
+        # Close the figure to free resources
+        plt.close(self.fig)
