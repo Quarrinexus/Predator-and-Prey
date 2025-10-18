@@ -21,6 +21,4 @@ def main():
     exit()
 
 if __name__ == "__main__":
-    #import cProfile
-    #cProfile.run('simulation.start()', 'profile.out') # use snakeviz to view the profile data
     main()

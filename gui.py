@@ -104,7 +104,10 @@ class Brain_GUI(mp.Process):
         self.font = pygame.font.SysFont('Roboto Condensed', 14)
         self.label_font = pygame.font.SysFont('Roboto Condensed', 36)  # Larger font size for label
         pygame.display.set_caption("Neural Network Visualization")
-        pygame.display.set_icon(pygame.image.load("brain.png"))
+        try:
+            pygame.display.set_icon(pygame.image.load("Assets/brain.png"))
+        except:
+            print("Brain icon file not found. Using default icon.")
         self.brain = None
 
         clock = pygame.time.Clock()

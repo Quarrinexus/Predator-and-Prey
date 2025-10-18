@@ -128,18 +128,16 @@ class Simulation(mp.Process):
             entity.hunger -= 1.0 # Decrease hunger every second
             if entity.hunger <= 0: # If hunger reaches zero, remove the prey
                 to_remove.append(entity)
-            weakest_fittest = min(fittest_group, key=lambda x: x.fitness, default=None)
-            if weakest_fittest is not None:
-                weakest_fittest_fitness = weakest_fittest.fitness
-                if entity.fitness > weakest_fittest_fitness:
-                    # Replace the weakest in fittest group
-                    weakest_index = np.argmin([x.fitness for x in fittest_group])
-                    fittest_group[weakest_index] = entity
+        for entity in to_remove:
+            # Add to fittest group if applicable
+            weakest_fittest_fitness = min(fittest_group, key=lambda x: x.fitness, default=None).fitness
+            if entity.fitness > weakest_fittest_fitness:
+                # Replace the weakest in fittest group
                 weakest_index = np.argmin([x.fitness for x in fittest_group])
                 fittest_group[weakest_index] = entity
             entities.remove(entity)
         return entities, fittest_group
-
+    
     # Numba-accelerated function to find the closest food for each prey
     @staticmethod
     @njit
@@ -294,7 +292,10 @@ class Simulation(mp.Process):
         # Set up the display
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("Predator and Prey Simulation") # Sets window title
-        pygame.display.set_icon(pygame.image.load("icon.png")) # Loads icon
+        try:
+            pygame.display.set_icon(pygame.image.load("Assets/icon.png")) # Loads icon
+        except:
+            self.logger.warning("Icon file not found. Using default icon.")
 
         # Set up simulation variables
         clock = pygame.time.Clock()
