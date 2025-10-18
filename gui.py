@@ -3,28 +3,28 @@ import numpy as np
 import multiprocessing as mp
 
 class Brain_GUI(mp.Process):
-    def __init__(self, queue, width=1200, height=1000):
+    def __init__(self, brain_queue, width=1200, height=1000):
         super().__init__()
 
         # Multiprocessing queue to receive brain data
-        self.queue = queue
+        self.brain_queue = brain_queue
 
         # Pygame window dimensions
         self.width = width
         self.height = height
 
         # Labels for input nodes
-        self.prey_labels = ["Distance to Closest Food", "Angle to Closest Food", "Distance to Closest Pred", "Angle to Closest Pred", "Closest Pred Dir", "Current Direction", "Hunger"]
+        self.prey_labels = ["Distance to Closest Food", "Angle to Closest Food", "Distance to Closest Predator", "Angle to Closest Pred", "Direction of Closest Pred", "Current Direction", "Hunger"]
         self.predator_labels = ["Distance to Closest Prey", "Angle to Closest Prey", "Direction of Closest Prey", "Distance to Closest Food", "Angle to Closest Food", "Current Direction", "Hunger"]
 
-    def draw_nodes(self, prey=True):
+    def draw_nodes(self, is_prey=True):
         # Draw input layer
         input_number = self.brain.W1.shape[0]
         for i in range(input_number):
             coords = (self.width * 2 / 10, (self.height * 0.4) * i / (input_number-1) + (self.height * 0.3))
             pygame.draw.circle(self.screen, (163, 217, 110), coords, 20)
             # Write labels besides circles
-            label = self.prey_labels[i] if prey else self.predator_labels[i]
+            label = self.prey_labels[i] if is_prey else self.predator_labels[i]
             text = self.font.render(label, True, (0, 0, 0))
             text_rect = text.get_rect(midright=(coords[0] - 25, coords[1]))
             self.screen.blit(text, text_rect)
@@ -102,6 +102,7 @@ class Brain_GUI(mp.Process):
 
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.font = pygame.font.SysFont('Roboto Condensed', 14)
+        self.label_font = pygame.font.SysFont('Roboto Condensed', 36)  # Larger font size for label
         pygame.display.set_caption("Neural Network Visualization")
         pygame.display.set_icon(pygame.image.load("brain.png"))
         self.brain = None
@@ -112,13 +113,15 @@ class Brain_GUI(mp.Process):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-            self.screen.fill((255, 255, 255))
-            self.brain = self.queue.get()
-            if self.brain == "QUIT": # Command to quit the GUI when the simulation ends
-                break
-            elif self.brain != None:
-                self.draw_layers()
-                self.draw_nodes()
-            pygame.display.flip()
+            if not self.brain_queue.empty():
+                self.brain, is_prey = self.brain_queue.get()
+                if self.brain == "QUIT": # Command to quit the GUI when the simulation ends
+                    break
+                elif self.brain != None:
+                    self.screen.fill((255, 255, 255))
+                    self.draw_layers()
+                    self.draw_nodes(is_prey)
+                    self.screen.blit(self.label_font.render("Prey" if is_prey else "Predator", True, (0,0,0)), (10,10))
+                    pygame.display.flip()
             clock.tick(1) # Limit to 1 FPS to reduce CPU usage
         pygame.quit()
