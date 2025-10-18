@@ -14,7 +14,7 @@ class Brain_GUI(mp.Process):
         self.height = height
 
         # Labels for input nodes
-        self.prey_labels = ["Distance to Closest Food", "Angle to Closest Food", "Distance to Closest Predator", "Angle to Closest Pred", "Direction of Closest Pred", "Current Direction", "Hunger"]
+        self.prey_labels = ["Distance to Closest Food", "Angle to Closest Food", "Distance to Closest Predator", "Angle to Closest Predator", "Direction of Closest Predator", "Current Direction", "Hunger"]
         self.predator_labels = ["Distance to Closest Prey", "Angle to Closest Prey", "Direction of Closest Prey", "Distance to Closest Food", "Angle to Closest Food", "Current Direction", "Hunger"]
 
     def draw_nodes(self, is_prey=True):
@@ -111,6 +111,14 @@ class Brain_GUI(mp.Process):
         self.brain = None
 
         clock = pygame.time.Clock()
+
+        # Initial screen with instructions
+        self.screen.fill((230, 230, 230))
+        text = self.label_font.render("Click on a Predator or Prey in the main window to display it's brain here", True, (0, 0, 0))
+        text_rect = text.get_rect(center=(self.width/2, self.height/3))
+        self.screen.blit(text, text_rect)
+        pygame.display.flip()
+
         running = True
         while running:
             for event in pygame.event.get():
@@ -121,10 +129,11 @@ class Brain_GUI(mp.Process):
                 if self.brain == "QUIT": # Command to quit the GUI when the simulation ends
                     break
                 elif self.brain != None:
-                    self.screen.fill((255, 255, 255))
+                    self.screen.fill((230, 230, 230))
                     self.draw_layers()
                     self.draw_nodes(is_prey)
                     self.screen.blit(self.label_font.render("Prey" if is_prey else "Predator", True, (0,0,0)), (10,10))
                     pygame.display.flip()
+
             clock.tick(1) # Limit to 1 FPS to reduce CPU usage
         pygame.quit()

@@ -28,7 +28,7 @@ class RealTimePlotter(mp.Process):
         self.ax.set_ylim(0, 100)
         self.ax.set_xlabel("Time / seconds")
         self.ax.set_ylabel("Population")
-        self.ax.set_title("Predator and Prey Populations against time")
+        self.ax.set_title("Predator and Prey Populations against Time")
         self.ax.legend()
 
 
